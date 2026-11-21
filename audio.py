@@ -40,11 +40,17 @@ def listing(kind):
     # stable server IDs; never infer them from the position in the JSON array.
     if kind == 'modules' and any('index' not in node for node in nodes):
         nodes = []
-        for line in pactl('list', 'short', 'modules').splitlines():
+        # "short" controls fields, not serialization. Pin text explicitly so
+        # JSON output can never be mistaken for tab-separated module rows.
+        for line in pactl('--format=text', 'list', 'short', 'modules').splitlines():
+            if not line.strip():
+                continue
             columns = line.split('\t', 3)
-            if len(columns) >= 2:
-                nodes.append({'index': int(columns[0]), 'name': columns[1],
-                              'argument': columns[2] if len(columns) > 2 else ''})
+            index = columns[0].strip()
+            if len(columns) < 2 or not index.isascii() or not index.isdecimal() or not columns[1]:
+                raise AudioUnavailable('خروجی فهرست ماژول‌های pactl قالب متنی معتبر ندارد؛ شناسهٔ ماژول قابل تشخیص نیست.')
+            nodes.append({'index': int(index), 'name': columns[1],
+                          'argument': columns[2] if len(columns) > 2 else ''})
     return nodes
 
 

@@ -44,7 +44,26 @@ class EchoBridgeTests(unittest.TestCase):
             '42\tmodule-echo-cancel\tsource_name=mic\t0\n',
         ]) as command:
             self.assertEqual([{'index':42,'name':'module-echo-cancel','argument':'source_name=mic'}],audio.listing('modules'))
-        self.assertEqual(('list','short','modules'),command.call_args.args)
+        self.assertEqual(('--format=text','list','short','modules'),command.call_args.args)
+
+    def test_unexpected_json_in_text_fallback_is_rejected_without_value_error(self):
+        for output in ('[\n\t{\n        }\t\n]', '[{"index":42,"name":"module-echo-cancel"}]'):
+            with self.subTest(output=output), patch('audio.pactl',side_effect=[
+                '[{"name":"module-echo-cancel"}]', output,
+            ]):
+                with self.assertRaises(audio.AudioUnavailable):
+                    audio.listing('modules')
+
+    def test_blank_module_rows_are_ignored_and_empty_arguments_preserved(self):
+        with patch('audio.pactl',side_effect=[
+            '[{"name":"module-echo-cancel"}]', '\n42\tmodule-echo-cancel\t\t\n\n',
+        ]):
+            self.assertEqual([{'index':42,'name':'module-echo-cancel','argument':''}],audio.listing('modules'))
+
+    def test_json_module_ids_do_not_need_a_text_fallback(self):
+        with patch('audio.pactl',return_value='[{"index":42,"name":"module-echo-cancel","argument":""}]') as command:
+            self.assertEqual(42,audio.listing('modules')[0]['index'])
+            command.assert_called_once_with('--format=json','list','modules')
 
     def test_both_explicit_aec_routes_created_once_without_changing_system_defaults(self):
         fake=FakePulse()
