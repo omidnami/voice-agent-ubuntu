@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import queue
+import re
 import shlex
 import subprocess
 import threading
@@ -39,18 +40,31 @@ def listing(kind):
     # Some pactl versions omit module indexes in JSON. The short listing keeps
     # stable server IDs; never infer them from the position in the JSON array.
     if kind == 'modules' and any('index' not in node for node in nodes):
-        nodes = []
         # "short" controls fields, not serialization. Pin text explicitly so
         # JSON output can never be mistaken for tab-separated module rows.
-        for line in pactl('--format=text', 'list', 'short', 'modules').splitlines():
-            if not line.strip():
-                continue
+        nodes = parse_module_list(pactl('--format=text', 'list', 'short', 'modules'))
+    return nodes
+
+
+def parse_module_list(output):
+    """Module arguments may contain literal newlines and tabs on PipeWire.
+
+    Only an unindented numeric ID followed by a tab and module name starts a
+    record. All following lines belong to its argument until the next header.
+    """
+    nodes = []
+    for line in output.splitlines():
+        header = re.fullmatch(r'([0-9]+)\t([^\s]+)(?:\t(.*))?', line)
+        if header:
             columns = line.split('\t', 3)
-            index = columns[0].strip()
-            if len(columns) < 2 or not index.isascii() or not index.isdecimal() or not columns[1]:
-                raise AudioUnavailable('خروجی فهرست ماژول‌های pactl قالب متنی معتبر ندارد؛ شناسهٔ ماژول قابل تشخیص نیست.')
-            nodes.append({'index': int(index), 'name': columns[1],
+            nodes.append({'index': int(header[1]), 'name': header[2],
                           'argument': columns[2] if len(columns) > 2 else ''})
+        elif not line.strip():
+            continue
+        elif nodes:
+            nodes[-1]['argument'] += '\n' + line.rstrip('\t')
+        else:
+            raise AudioUnavailable('خروجی فهرست ماژول‌های pactl قالب متنی معتبر ندارد؛ شناسهٔ ماژول قابل تشخیص نیست.')
     return nodes
 
 

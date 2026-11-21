@@ -4,6 +4,7 @@ import subprocess
 import threading
 import time
 import unittest
+from pathlib import Path
 from unittest.mock import patch, Mock
 
 import audio
@@ -38,6 +39,28 @@ class FakePulse:
 
 
 class EchoBridgeTests(unittest.TestCase):
+    def test_reported_pipewire_multiline_arguments_keep_real_module_ids(self):
+        output=(Path(__file__).parent/'fixtures'/'pipewire-modules.txt').read_text()
+        with patch('audio.pactl',side_effect=['[{"name":"libpipewire-module-rt"}]',output]):
+            modules=audio.listing('modules')
+        self.assertEqual([1,2,3,5,7,9,11,13,15,16,17,19,21,28,536870912,536870913,536870914],
+                         [m['index'] for m in modules])
+        self.assertIn('nice.level    = -11',modules[0]['argument'])
+        self.assertIn('\t\t#midi.ports = 1',modules[13]['argument'])
+        self.assertEqual('agent_aec_source',audio.module_options(modules[-2])['source_name'])
+        self.assertEqual('voice_agent_mic',audio.module_options(modules[-1])['source_name'])
+        fake=FakePulse();fake.modules=list(modules)
+        with patch('audio.pactl',side_effect=fake):
+            bridge=audio.EchoBridge();bridge.prepare();bridge.close()
+        self.assertEqual(modules,fake.modules)
+        self.assertEqual([('unload-module','99')],[c for c in fake.calls if c[0]=='unload-module'])
+
+    def test_multiline_echo_options_are_preserved_for_ownership_checks(self):
+        modules=audio.parse_module_list('42\tmodule-echo-cancel\tsource_name=voice_agent_aec_mic\n'
+                                       'sink_name=voice_agent_aec_speaker\n43\tmodule-always-sink\t\t')
+        self.assertEqual(2,len(modules))
+        self.assertEqual(audio.SINK,audio.module_options(modules[0])['sink_name'])
+
     def test_json_without_module_indexes_uses_stable_server_ids(self):
         with patch('audio.pactl',side_effect=[
             '[{"name":"module-echo-cancel","argument":"source_name=mic"}]',

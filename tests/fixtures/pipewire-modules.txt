@@ -1,0 +1,52 @@
+1	libpipewire-module-rt	{
+            nice.level    = -11
+            rt.prio       = 88
+            #rt.time.soft = -1
+            #rt.time.hard = -1
+            #uclamp.min = 0
+            #uclamp.max = 1024
+        }	
+2	libpipewire-module-protocol-native	{
+            # List of server Unix sockets, and optionally permissions
+            #sockets = [ { name = "pipewire-0" }, { name = "pipewire-0-manager" } ]
+        }	
+3	libpipewire-module-profiler		
+5	libpipewire-module-metadata		
+7	libpipewire-module-spa-device-factory		
+9	libpipewire-module-spa-node-factory		
+11	libpipewire-module-client-node		
+13	libpipewire-module-client-device		
+15	libpipewire-module-portal		
+16	libpipewire-module-access	{
+            # Socket-specific access permissions
+            #access.socket = { pipewire-0 = "default", pipewire-0-manager = "unrestricted" }
+
+            # Deprecated legacy mode (not socket-based),
+            # for now enabled by default if access.socket is not specified
+            #access.legacy = true
+        }	
+17	libpipewire-module-adapter		
+19	libpipewire-module-link-factory		
+21	libpipewire-module-session-manager		
+28	libpipewire-module-jackdbus-detect	{
+            #jack.library     = libjack.so.0
+            #jack.server      = null
+            #jack.client-name = PipeWire
+            #jack.connect     = true
+            #tunnel.mode      = duplex  # source|sink|duplex
+            source.props = {
+                #audio.channels = 2
+		#midi.ports = 1
+                #audio.position = [ FL FR ]
+                # extra sink properties
+            }
+            sink.props = {
+                #audio.channels = 2
+		#midi.ports = 1
+                #audio.position = [ FL FR ]
+                # extra sink properties
+            }
+        }	
+536870912	module-always-sink		
+536870913	module-echo-cancel	aec_method=webrtc source_master=alsa_input.pci-0000_00_1b.0.analog-stereo.4 sink_master=alsa_output.pci-0000_00_1b.0.analog-stereo source_name=agent_aec_source sink_name=agent_aec_sink	
+536870914	module-echo-cancel	aec_method=webrtc source_name=voice_agent_mic sink_name=voice_agent_speaker	
